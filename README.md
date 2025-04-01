@@ -1,58 +1,51 @@
 # InfotechChatbotText-to-SQL
+### Overview
+InfoBridge Chatbot Assistant is a GPU-accelerated conversational system that enables natural language interaction with bridge infrastructure datasets. The system integrates:
+Retrieval-Augmented Generation (RAG) for open-ended semantic questions.
+Text-to-SQL translation for structured querying via SQLite.
+A fully local large language model: Meta-LLaMA 3.1 8B Instruct (GGUF format), powered by llama-cpp-python with full CUDA GPU acceleration.
 
 
-## InfoBridge Chatbot Assistant
+### Key Features
+Semantic Search (RAG) over scraped FHWA InfoBridge content.
 
-A conversational AI assistant that integrates **Retrieval-Augmented Generation (RAG)** and **Text-to-SQL** capabilities to enable natural language querying over the **FHWA InfoBridge datasets**, powered by **Meta-LLaMA 3.1 8B Instruct (GGUF)** with **GPU acceleration via `llama-cpp-python`**.
+Natural Language to SQL conversion for structured data queries.
 
----
+Fast, local inference using llama-cpp-python on Hopper ORC GPUs.
 
-## Project Summary
+Interactive Web UI via Flask frontend.
 
- Project Summary
-This chatbot system supports two modes of interaction:
-
-Semantic Search (RAG): Answers open-ended user questions about bridge technologies using a pre-scraped knowledge base.
-
-Text-to-SQL (Natural Language to SQL): Converts structured user queries into SQL and fetches answers directly from a SQLite database.
-
-Powered by LLaMA 3.1 8B: Using llama-cpp-python for fully local, GPU-accelerated inference (no OpenAI API required).
-
-Flask-based Interface: Lightweight web UI using HTML and JavaScript.
-
-## Project Structure
+### Project Structure
 ```
 ├── test.py                       # Main backend Flask app (entry point)
 ├── templates/
 │   └── index.html                # Frontend chatbot interface
 ├── InfoBridge_scraped_data.json # RAG knowledge base
 ├── TextToSQL/
-│   ├── sql.py                   # Text-to-SQL logic (invoked on * queries)
-│   ├── bridges.db               # SQLite database of bridge info
-│   └── *.csv                    # Raw structured datasets (used to build DB)
-├── requirements.txt             # Python dependencies
-└── README.md                    # Project documentation
-
----
-
-##  Setup Instructions
-
-
-
-### 1. Clone the Repository
-```bash
-cd InfoBridge-Chatbot
+│   ├── sql.py                    # Text-to-SQL logic (invoked on * queries)
+│   ├── bridges.db                # SQLite database
+│   └── *.csv                     # Raw structured datasets (loaded into DB)
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
 ```
 
-## 2. Create Environment and Install Dependencies
+### Setup Instructions
+1. Clone the Repository
+```
+git clone https://github.com/<your-repo>/InfotechChatbotText-to-SQL.git
+cd InfotechChatbotText-to-SQL
+```
+2. Create Python Environment & Install Dependencies
 ````
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 ````
-3. Required Model: LLaMA 3.1 8B Instruct (GGUF)
-The chatbot uses the quantized Q4_K_M version from HuggingFace:
+
+
+3. LLaMA 3.1 Model Setup (GGUF)
+
 ```
 from huggingface_hub import hf_hub_download
 
@@ -61,62 +54,66 @@ model_path = hf_hub_download(
     filename="Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
 )
 ```
-Cluster and GPU Setup (Hopper ORC Cluster @ GMU)
-This chatbot is optimized to run on GPU-enabled VMs from GMU's Hopper cluster. Follow the instructions below to ensure proper CUDA and module setup.
-Required Environment (Tested on Hopper VM)
-![image](https://github.com/user-attachments/assets/a496c71d-3edf-4f5a-b293-e3dad119927e)
+4. GPU + CUDA Configuration
+(Hopper ORC Cluster @ GMU)--optional -- Visula Studio Instance was used for this project to run the codes and comands
 
-4. Module Load Instructions
-SSH into your Hopper VM and run:
+*Load Modules 
 ```
 module load cuda/12.6.3
 module list
 ```
-5.  Key CUDA Settings (optional but recommended)
-Add these to your .bashrc or set before launching the chatbot:
 
-
+Optional (recommended for GGUF performance):
 ```
 export PATH=/usr/local/cuda-12.6/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH
-export GGML_CUDA_FORCE_MMQ=1   # Optional: optimize memory for GGUF
-
+export GGML_CUDA_FORCE_MMQ=1
 ```
+5. GPU-Accelerated LLaMA Inference via llama-cpp-python
 
-6.  llama-cpp-python with GPU
-The LLaMA 3.1 8B model is loaded using llama-cpp-python, which allows running the entire quantized model on the GPU (no OpenAI API required).
-Example usage in your test.py:
-````
-llm = Llama(
-    model_path=model_path,
-    n_ctx=4096,
-    n_threads=8,
-    n_gpu_layers=-1,       # Offload all layers to GPU
-    batch_size=1024,
-    f16_kv=True,
-    flash_attn=True
-)
-````
-Ensure your version of llama-cpp-python is compiled with CUDA:
+   Ensure llama-cpp-python is compiled with CUDA:
 ```
 pip install llama-cpp-python --upgrade
-
-CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install --force-reinstall llama-cpp-python --no-cache-dir
-
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 \
+pip install --force-reinstall llama-cpp-python --no-cache-dir
 ```
-Launch the the model Flask App
-```
+6. Launch the Chatbot
+````
 python test.py
 ````
 
-It will start the chatbot on:
+This will start the backend Flask app on: 
+Note: Port no may vary based on the configuration
+
+```
+http://localhost:6150/
+```
+
+#### RAG Model Interaction Instructions
+General Q&A (RAG Mode)
+Ask open-ended questions like:
+
+“What is Hammer Sounding?”
+“How to do Drilling.”
+
+The chatbot responds using semantic search from InfoBridge_scraped_data.json.
+
+#### Text-to-SQL Mode
+
+Prefix queries with an asterisk * to invoke structured SQL-based responses.
+
+Examples:
+* Show the top 3 bridges with highest average daily traffic.
+* Find bridges built before 1970 in Fairfax County.
+
+The chatbot will generate SQL, run it against bridges.db, and return the results.
+
+### Demo Summary (for Reviewers)
 
 
-Interaction Flow
-![image](https://github.com/user-attachments/assets/0ac23ead-6d81-4d37-be93-d9f162b61b28)
+![image](https://github.com/user-attachments/assets/740aad43-f5fe-4c71-8517-788bdb3e255c)
 
-
-#### Requirements
+### Required Python Packages
 ```
 flask
 llama-cpp-python
@@ -128,16 +125,31 @@ numpy
 sqlite3
 transformers
 ```
-#### Install with:
+Install via:
 ```
 pip install -r requirements.txt
 ```
+#### Note
 
-Overall Note:
+The chatbot uses only local inference. No OpenAI or cloud API is required.
+
+CSV files under TextToSQL/ are used to construct the SQLite database.
+
+No need to run sql.py separately — it’s integrated into test.py.
+
+Conversations and SQL responses are dynamically handled in real-time.
+
+####  How to Reproduce the Demo
 ```
-Text-to-SQL functionality is triggered with an asterisk (*) prefix.
+Follow setup steps above
 
-Database (bridges.db) is built using CSVs in the TextToSQL/ folder.
+Run: python test.py
 
-Backend (test.py) and frontend (index.html) are tightly integrated.
+Navigate to: http://localhost:6150 -- new webpage wil open
+
+Start chatting — try open-ended and *sql questions
+
+All data, models, and responses remain local (no internet required post-download)
 ````
+
+
